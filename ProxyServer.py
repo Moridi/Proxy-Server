@@ -60,6 +60,39 @@ class ProxyServer(object):
         self.changeUrl()
         self.removeProxyHeader()
 
+    def setupHttpConnection(self):
+        URL_PART = HOST_NAME_LINE = FIRST_CHAR = 1
+        HTTP_PORT = 80
+
+        ipAddress = socket.gethostbyname(self.httpMessage[HOST_NAME_LINE][URL_PART][FIRST_CHAR : ])
+
+        httpSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        httpSocket.connect((ipAddress, HTTP_PORT))
+        
+        return httpSocket
+
+    def getRequestMessage(self):
+        message = ""
+        for i, x in enumerate(self.httpMessage):
+            if (i == 0):
+                message += x[0] + " " + x[1] + "\r\n"                
+            else:
+                message += x[0] + ":" + x[1] + "\r\n"
+        
+        message += "\r\n"
+
+        return message
+
+    def sendHttpRequest(self):
+        message = self.getRequestMessage()        
+
+        self.httpSocket.sendall(bytes(message, 'utf-8'))
+        self.serverResponse = self.httpSocket.recv(2048)
+
+    def sendResponseToClient(self):
+        print(self.serverResponse)
+        self.proxySocket.send(self.serverResponse)
+
     def run(self):
         MAX_BUFFER_SIZE = 1024
 
@@ -69,7 +102,10 @@ class ProxyServer(object):
         self.httpMessage = Parser.parseHttpMessage(data)
         self.prepareRequest()
 
-        for x in self.httpMessage:
-            print(x)
+        # for x in self.httpMessage:
+        #     print(x)
 
+        self.httpSocket = self.setupHttpConnection()
+        self.sendHttpRequest()
+        self.sendResponseToClient()
         self.proxySocket.close()

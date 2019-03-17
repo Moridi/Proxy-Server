@@ -23,7 +23,6 @@ class Parser(object):
 
         return parsedData
 
-
     @staticmethod
     def parseHttpMessage(message):
         DELIMITER = ":"
