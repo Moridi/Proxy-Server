@@ -7,6 +7,7 @@ class ProxyServer(object):
         MAX_CLIENT_NUMBER = 5
 
         proxySocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        proxySocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         proxySocket.bind(('localhost', self.config["port"]))
         proxySocket.listen(MAX_CLIENT_NUMBER)
         return proxySocket
@@ -87,25 +88,24 @@ class ProxyServer(object):
         message = self.getRequestMessage()        
 
         self.httpSocket.sendall(bytes(message, 'utf-8'))
-        self.serverResponse = self.httpSocket.recv(2048)
 
-    def sendResponseToClient(self):
-        print(self.serverResponse)
-        self.proxySocket.send(self.serverResponse)
+        while True:
+            data = self.httpSocket.recv(1024)
+            if not data:
+                break
+            print(str(data))
+            self.clientsocket.sendall(data)
 
     def run(self):
         MAX_BUFFER_SIZE = 1024
 
-        (clientsocket, address) = self.proxySocket.accept()
-        data = clientsocket.recv(MAX_BUFFER_SIZE)
+        (self.clientsocket, address) = self.proxySocket.accept()
+
+        data = self.clientsocket.recv(MAX_BUFFER_SIZE)
         
         self.httpMessage = Parser.parseHttpMessage(data)
         self.prepareRequest()
 
-        # for x in self.httpMessage:
-        #     print(x)
-
         self.httpSocket = self.setupHttpConnection()
         self.sendHttpRequest()
-        self.sendResponseToClient()
         self.proxySocket.close()
