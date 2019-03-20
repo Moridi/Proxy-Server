@@ -1,6 +1,7 @@
 import socket
 import threading
 
+from Logger import Logger
 from Parser import Parser
 
 MAX_BUFFER_SIZE = 1024
@@ -18,6 +19,8 @@ class ProxyServer(object):
     def __init__(self, fileName):
         self.config = Parser.parseJsonFile(fileName)
         self.proxySocket = self.setupTcpConnection()
+        self.logger = Logger(self.config["logging"]["logFile"],\
+                self.config["logging"]["enable"])
 
     def changeHttpVersion(self, httpMessage):
         REQUEST_LINE = 0
@@ -33,7 +36,7 @@ class ProxyServer(object):
                     HTTP_VERSION + httpMessage[REQUEST_LINE][HTTP_VERSION_PART][\
                     httpVersionIndex + len(HTTP_VERSION) : ])
         except:
-            threading.current_thread()._stop()
+            pass
 
     def changeUrl(self, httpMessage):
         REQUEST_LINE = 0
@@ -48,7 +51,7 @@ class ProxyServer(object):
                     httpMessage[REQUEST_LINE][URL_PART][len(HTTP_PART) +\
                     len(httpMessage[HOST_NAME_LINE][URL_PART]) : ])
         except:
-            threading.current_thread()._stop()
+            pass
 
     def getProxyConnectionIndex(self, httpMessage):
         PROXY_CONNECTION = "Proxy-Connection"
@@ -61,7 +64,10 @@ class ProxyServer(object):
 
     def removeProxyHeader(self, httpMessage):
         index = self.getProxyConnectionIndex(httpMessage)
-        httpMessage.pop(index)
+        try:
+            httpMessage.pop(index)
+        except:
+            pass
 
     def prepareRequest(self, httpMessage):
         self.changeHttpVersion(httpMessage)
@@ -94,9 +100,13 @@ class ProxyServer(object):
         return message
 
     def sendHttpRequest(self, clientSocket, httpSocket, httpMessage):
+        REQUEST_LINE = 0
+
         message = self.getRequestMessage(httpMessage)     
         
         try:
+            self.logger.log(httpMessage[REQUEST_LINE][0] +\
+                    " " + httpMessage[REQUEST_LINE][1])
             httpSocket.sendall(bytes(message, 'utf-8'))
         except:
             pass
