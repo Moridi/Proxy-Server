@@ -7,7 +7,7 @@ MAX_BUFFER_SIZE = 1024
 
 class ProxyServer(object):
     def setupTcpConnection(self):
-        MAX_CLIENT_NUMBER = 30
+        MAX_CLIENT_NUMBER = 300
 
         proxySocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         proxySocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -109,23 +109,9 @@ class ProxyServer(object):
             self.sendHttpRequest(clientSocket, httpSocket, httpMessage)
 
     def run(self):
-        # while True:
-
+        while True:
             # Establish the connection
-            (clientSocket, clientAddress) = self.proxySocket.accept() 
-            self.proxyThread(clientSocket, clientAddress)
-            # d = threading.Thread(target = self.proxyThread, args=(clientSocket, clientAddress))
-            # d.setDaemon(True)
-            # d.start()
-
-        # while True:
-            # (self.clientSocket, address) = self.proxySocket.accept()
-
-            # data = self.clientSocket.recv(MAX_BUFFER_SIZE)
-            
-            # self.httpMessage = Parser.parseHttpMessage(data)
-            # self.prepareRequest()
-
-            # self.httpSocket = self.setupHttpConnection()
-            # self.sendHttpRequest()
-            # self.proxySocket.close()
+            (clientSocket, clientAddress) = self.proxySocket.accept()
+            d = threading.Thread(target = self.proxyThread, args=(clientSocket, clientAddress))
+            d.setDaemon(True)
+            d.start()
