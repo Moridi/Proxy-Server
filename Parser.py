@@ -24,6 +24,22 @@ class Parser(object):
         return parsedData
 
     @staticmethod
+    def getResponseLine(message):
+        line = ""
+
+        for character in message:
+            if (chr(character) == '\r'):
+                continue
+            if (chr(character) == '\n'):
+                break
+            line += chr(character)
+
+        if (line[ : 4] == "HTTP"):
+            return line
+        else:
+            return ""
+
+    @staticmethod
     def parseHttpMessage(message):
         DELIMITER = ":"
         REQUEST_DELIMITER = " "

@@ -98,6 +98,18 @@ class ProxyServer(object):
         message += "\r\n"
 
         return message
+    
+    def sendDataToClient(self, httpSocket, clientSocket):
+        while True:
+            try:
+                data = httpSocket.recv(MAX_BUFFER_SIZE)
+                self.logger.serverLog(Parser.getResponseLine(data))
+
+                if not data:
+                    break
+                clientSocket.sendall(data)
+            except:
+                pass
 
     def sendHttpRequest(self, clientSocket, httpSocket, httpMessage):
         REQUEST_LINE = 0
@@ -105,20 +117,13 @@ class ProxyServer(object):
         message = self.getRequestMessage(httpMessage)     
         
         try:
-            self.logger.log(httpMessage[REQUEST_LINE][0] +\
+            self.logger.clientLog(httpMessage[REQUEST_LINE][0] +\
                     " " + httpMessage[REQUEST_LINE][1])
             httpSocket.sendall(bytes(message, 'utf-8'))
         except:
             pass
 
-        while True:
-            try:
-                data = httpSocket.recv(1024)
-                if not data:
-                    break
-                clientSocket.sendall(data)
-            except:
-                pass
+        self.sendDataToClient(httpSocket, clientSocket)
 
     def proxyThread(self, clientSocket, clientAddress):
             data = clientSocket.recv(MAX_BUFFER_SIZE)
