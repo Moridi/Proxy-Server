@@ -25,13 +25,15 @@ class ProxyServer(object):
         HTTP_VERSION_PART = 1
         HTTP_VERSION = "HTTP/1.0"
 
-        httpVersionIndex = httpMessage[REQUEST_LINE][HTTP_VERSION_PART].find(" ") + 1
-
-        httpMessage[REQUEST_LINE] = (\
-                httpMessage[REQUEST_LINE][FIRST_PART],\
-                httpMessage[REQUEST_LINE][HTTP_VERSION_PART][ : httpVersionIndex] +\
-                HTTP_VERSION + httpMessage[REQUEST_LINE][HTTP_VERSION_PART][\
-                httpVersionIndex + len(HTTP_VERSION) : ])
+        try:
+            httpVersionIndex = httpMessage[REQUEST_LINE][HTTP_VERSION_PART].find(" ") + 1
+            httpMessage[REQUEST_LINE] = (\
+                    httpMessage[REQUEST_LINE][FIRST_PART],\
+                    httpMessage[REQUEST_LINE][HTTP_VERSION_PART][ : httpVersionIndex] +\
+                    HTTP_VERSION + httpMessage[REQUEST_LINE][HTTP_VERSION_PART][\
+                    httpVersionIndex + len(HTTP_VERSION) : ])
+        except:
+            threading.current_thread()._stop()
 
     def changeUrl(self, httpMessage):
         REQUEST_LINE = 0
@@ -40,11 +42,13 @@ class ProxyServer(object):
         URL_PART = 1
         HTTP_PART = "http:/"
 
-        spaceIndex = httpMessage[REQUEST_LINE][URL_PART].find(" ")
-
-        httpMessage[REQUEST_LINE] = (httpMessage[REQUEST_LINE][FIRST_PART],\
-                httpMessage[REQUEST_LINE][URL_PART][len(HTTP_PART) +\
-                len(httpMessage[HOST_NAME_LINE][URL_PART]) : ])
+        try:
+            spaceIndex = httpMessage[REQUEST_LINE][URL_PART].find(" ")
+            httpMessage[REQUEST_LINE] = (httpMessage[REQUEST_LINE][FIRST_PART],\
+                    httpMessage[REQUEST_LINE][URL_PART][len(HTTP_PART) +\
+                    len(httpMessage[HOST_NAME_LINE][URL_PART]) : ])
+        except:
+            threading.current_thread()._stop()
 
     def getProxyConnectionIndex(self, httpMessage):
         PROXY_CONNECTION = "Proxy-Connection"
@@ -68,12 +72,14 @@ class ProxyServer(object):
         URL_PART = HOST_NAME_LINE = FIRST_CHAR = 1
         HTTP_PORT = 80
 
-        ipAddress = socket.gethostbyname(httpMessage[HOST_NAME_LINE][URL_PART][FIRST_CHAR : ])
+        try:
+            ipAddress = socket.gethostbyname(httpMessage[HOST_NAME_LINE][URL_PART][FIRST_CHAR : ])
 
-        httpSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        httpSocket.connect((ipAddress, HTTP_PORT))
-        
-        return httpSocket
+            httpSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            httpSocket.connect((ipAddress, HTTP_PORT))
+            return httpSocket
+        except:
+            pass
 
     def getRequestMessage(self, httpMessage):
         message = ""
@@ -89,15 +95,20 @@ class ProxyServer(object):
 
     def sendHttpRequest(self, clientSocket, httpSocket, httpMessage):
         message = self.getRequestMessage(httpMessage)     
-
-        httpSocket.sendall(bytes(message, 'utf-8'))
+        
+        try:
+            httpSocket.sendall(bytes(message, 'utf-8'))
+        except:
+            pass
 
         while True:
-            data = httpSocket.recv(1024)
-            if not data:
-                break
-            print(str(data))
-            clientSocket.sendall(data)
+            try:
+                data = httpSocket.recv(1024)
+                if not data:
+                    break
+                clientSocket.sendall(data)
+            except:
+                pass
 
     def proxyThread(self, clientSocket, clientAddress):
             data = clientSocket.recv(MAX_BUFFER_SIZE)
@@ -110,8 +121,7 @@ class ProxyServer(object):
 
     def run(self):
         while True:
-            # Establish the connection
             (clientSocket, clientAddress) = self.proxySocket.accept()
-            d = threading.Thread(target = self.proxyThread, args=(clientSocket, clientAddress))
-            d.setDaemon(True)
-            d.start()
+            newThread = threading.Thread(target = self.proxyThread, args=(clientSocket, clientAddress))
+            newThread.setDaemon(True)
+            newThread.start()
