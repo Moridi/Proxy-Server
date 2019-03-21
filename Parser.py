@@ -26,6 +26,7 @@ class Parser(object):
     @staticmethod
     def getResponseLine(message):
         line = ""
+        ID = "HTTP"
 
         for character in message:
             if (chr(character) == '\r'):
@@ -34,8 +35,30 @@ class Parser(object):
                 break
             line += chr(character)
 
-        if (line[ : 4] == "HTTP"):
+        if (line[ : len(ID)] == ID):
             return line
+        else:
+            return None
+
+    @staticmethod
+    def getPragmaFlag(message):
+        line = ""
+        PRAGMA = "pragma: "
+        CACHE_CONTROL = "Cache-Control: "
+
+        for character in message:
+            if (chr(character) == '\r'):
+                continue
+            if (chr(character) == '\n'):
+                if (line[ : len(PRAGMA)] == PRAGMA):
+                    return line[len(PRAGMA) : ]
+
+                if (line[ : len(CACHE_CONTROL)] == CACHE_CONTROL):
+                    return line[len(CACHE_CONTROL) : ]
+    
+                line = ""
+                continue
+            line += chr(character)
         else:
             return ""
 

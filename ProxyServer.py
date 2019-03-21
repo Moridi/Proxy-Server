@@ -3,8 +3,10 @@ import threading
 
 from Logger import Logger
 from Parser import Parser
+from Cache import Cache
 
 MAX_BUFFER_SIZE = 1024
+CONNECTION_TIMEOUT = 10
 
 class ProxyServer(object):
     def setupTcpConnection(self):
@@ -21,6 +23,9 @@ class ProxyServer(object):
         self.proxySocket = self.setupTcpConnection()
         self.logger = Logger(self.config["logging"]["logFile"],\
                 self.config["logging"]["enable"])
+                
+        self.cache = Cache(self.config["caching"]["size"],\
+                self.config["caching"]["enable"])
 
     def changeHttpVersion(self, httpMessage):
         REQUEST_LINE = 0
@@ -80,7 +85,7 @@ class ProxyServer(object):
 
         try:
             ipAddress = socket.gethostbyname(httpMessage[HOST_NAME_LINE][URL_PART][FIRST_CHAR : ])
-
+            # httpSocket.settimeout(CONNECTION_TIMEOUT)
             httpSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             httpSocket.connect((ipAddress, HTTP_PORT))
             return httpSocket
@@ -99,17 +104,36 @@ class ProxyServer(object):
 
         return message
     
+    def isCachable(self, message):
+        MAX_AGE = "max-age="
+        NOT_FOUND = -1
+
+        ageIndex = message.find(MAX_AGE)
+        if (ageIndex != NOT_FOUND):
+            return int(message[ageIndex + len(MAX_AGE) : ])
+        return 0
+
     def sendDataToClient(self, httpSocket, clientSocket):
+        isCachable = False
         while True:
             try:
                 data = httpSocket.recv(MAX_BUFFER_SIZE)
-                self.logger.serverLog(Parser.getResponseLine(data))
-
                 if not data:
                     break
+
+                self.logger.serverLog(Parser.getResponseLine(data))
+                age = self.isCachable(Parser.getPragmaFlag(data)) 
+                
+                if (age != 0):
+                    isCachable = True
+                    self.cache.createNewSlot()
+
+                if (isCachable):
+                    self.cache.addToCache(data)
+
                 clientSocket.sendall(data)
             except:
-                pass
+                break
 
     def sendHttpRequest(self, clientSocket, httpSocket, httpMessage):
         REQUEST_LINE = 0

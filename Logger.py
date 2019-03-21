@@ -12,7 +12,7 @@ class Logger(object):
             self.openedFile.close()
 
     def serverLog(self, message):
-        if (self.enable and message != ""):
+        if (self.enable and message != None):
             self.openedFile = open(self.fileName, "a+")
             self.openedFile.write(str(datetime.datetime.now()) + " : " + message + "\n")
             self.openedFile.close()
