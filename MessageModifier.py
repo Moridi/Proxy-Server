@@ -1,10 +1,12 @@
 class MessageModifier(object):
-    
-    def getProxyConnectionIndex(self, httpMessage):
-        PROXY_CONNECTION = "Proxy-Connection"
+    def __init__(self, userAgent, enable):
+        self.userAgent = userAgent
+        self.enable = enable
+
+    def getLineIndex(self, httpMessage, field):
         FIELD_PART = 0
 
-        index = [i for i, x in enumerate(httpMessage) if(x[FIELD_PART] == PROXY_CONNECTION)]
+        index = [i for i, x in enumerate(httpMessage) if(x[FIELD_PART] == field)]
         if (len(index) == 0):
             return -1
         return index[0]
@@ -25,7 +27,7 @@ class MessageModifier(object):
             pass
 
     def removeProxyHeader(self, httpMessage):
-        index = self.getProxyConnectionIndex(httpMessage)
+        index = self.getLineIndex(httpMessage, "Proxy-Connection")
         try:
             httpMessage.pop(index)
         except:
@@ -46,3 +48,14 @@ class MessageModifier(object):
                     httpVersionIndex + len(HTTP_VERSION) : ])
         except:
             pass
+
+    def changeUserAgent(self, httpMessage):
+        if (self.enable):
+            FIRST_PART = 0
+
+            userAgentIndex = self.getLineIndex(httpMessage, "User-Agent")
+            try:
+                httpMessage[userAgentIndex] = (
+                        httpMessage[userAgentIndex][FIRST_PART], self.userAgent)            
+            except:
+                pass

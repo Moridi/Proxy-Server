@@ -100,3 +100,17 @@ class Parser(object):
             line += chr(character)
         else:
             return ""
+
+    @staticmethod
+    def getRequestMessage(httpMessage):
+        message = ""
+        for i, x in enumerate(httpMessage):
+            if (i == 0):
+                message += x[0] + " " + x[1] + "\r\n"                
+            else:
+                message += x[0] + ":" + x[1] + "\r\n"
+        
+        message += "\r\n"
+
+        return message
+

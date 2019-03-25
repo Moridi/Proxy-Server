@@ -22,7 +22,9 @@ class ProxyServer(object):
     def __init__(self, fileName):
         self.config = Parser.parseJsonFile(fileName)
         self.proxySocket = self.setupTcpConnection()
-        self.messageModifier = MessageModifier()
+        self.messageModifier = MessageModifier(self.config["privacy"]["userAgent"],\
+                self.config["privacy"]["enable"])
+
         self.logger = Logger(self.config["logging"]["logFile"],\
                 self.config["logging"]["enable"])
                 
@@ -33,6 +35,7 @@ class ProxyServer(object):
         self.messageModifier.changeHttpVersion(httpMessage)
         self.messageModifier.changeUrl(httpMessage)
         self.messageModifier.removeProxyHeader(httpMessage)
+        self.messageModifier.changeUserAgent(httpMessage)
 
     def setupHttpConnection(self, httpMessage):
         URL_PART = HOST_NAME_LINE = FIRST_CHAR = 1
@@ -46,18 +49,6 @@ class ProxyServer(object):
             return httpSocket
         except:
             pass
-
-    def getRequestMessage(self, httpMessage):
-        message = ""
-        for i, x in enumerate(httpMessage):
-            if (i == 0):
-                message += x[0] + " " + x[1] + "\r\n"                
-            else:
-                message += x[0] + ":" + x[1] + "\r\n"
-        
-        message += "\r\n"
-
-        return message
     
     def isCachable(self, message):
         MAX_AGE = "max-age="
@@ -94,8 +85,8 @@ class ProxyServer(object):
     def sendHttpRequest(self, clientSocket, httpSocket, httpMessage):
         REQUEST_LINE = 0
 
-        message = self.getRequestMessage(httpMessage)     
-        
+        message = Parser.getRequestMessage(httpMessage)     
+
         try:
             self.logger.clientLog(httpMessage[REQUEST_LINE][0] +\
                     " " + httpMessage[REQUEST_LINE][1])
