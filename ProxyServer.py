@@ -4,6 +4,7 @@ import threading
 from Logger import Logger
 from Parser import Parser
 from Cache import Cache
+from MessageModifier import MessageModifier
 
 MAX_BUFFER_SIZE = 1024
 CONNECTION_TIMEOUT = 10
@@ -21,63 +22,17 @@ class ProxyServer(object):
     def __init__(self, fileName):
         self.config = Parser.parseJsonFile(fileName)
         self.proxySocket = self.setupTcpConnection()
+        self.messageModifier = MessageModifier()
         self.logger = Logger(self.config["logging"]["logFile"],\
                 self.config["logging"]["enable"])
                 
         self.cache = Cache(self.config["caching"]["size"],\
                 self.config["caching"]["enable"])
 
-    def changeHttpVersion(self, httpMessage):
-        REQUEST_LINE = 0
-        FIRST_PART = 0
-        HTTP_VERSION_PART = 1
-        HTTP_VERSION = "HTTP/1.0"
-
-        try:
-            httpVersionIndex = httpMessage[REQUEST_LINE][HTTP_VERSION_PART].find(" ") + 1
-            httpMessage[REQUEST_LINE] = (\
-                    httpMessage[REQUEST_LINE][FIRST_PART],\
-                    httpMessage[REQUEST_LINE][HTTP_VERSION_PART][ : httpVersionIndex] +\
-                    HTTP_VERSION + httpMessage[REQUEST_LINE][HTTP_VERSION_PART][\
-                    httpVersionIndex + len(HTTP_VERSION) : ])
-        except:
-            pass
-
-    def changeUrl(self, httpMessage):
-        REQUEST_LINE = 0
-        HOST_NAME_LINE = 1
-        FIRST_PART = 0
-        URL_PART = 1
-        HTTP_PART = "http:/"
-
-        try:
-            spaceIndex = httpMessage[REQUEST_LINE][URL_PART].find(" ")
-            httpMessage[REQUEST_LINE] = (httpMessage[REQUEST_LINE][FIRST_PART],\
-                    httpMessage[REQUEST_LINE][URL_PART][len(HTTP_PART) +\
-                    len(httpMessage[HOST_NAME_LINE][URL_PART]) : ])
-        except:
-            pass
-
-    def getProxyConnectionIndex(self, httpMessage):
-        PROXY_CONNECTION = "Proxy-Connection"
-        FIELD_PART = 0
-
-        index = [i for i, x in enumerate(httpMessage) if(x[FIELD_PART] == PROXY_CONNECTION)]
-        if (len(index) == 0):
-            return -1
-        return index[0]
-
-    def removeProxyHeader(self, httpMessage):
-        index = self.getProxyConnectionIndex(httpMessage)
-        try:
-            httpMessage.pop(index)
-        except:
-            pass
-
     def prepareRequest(self, httpMessage):
-        self.changeHttpVersion(httpMessage)
-        self.changeUrl(httpMessage)
-        self.removeProxyHeader(httpMessage)
+        self.messageModifier.changeHttpVersion(httpMessage)
+        self.messageModifier.changeUrl(httpMessage)
+        self.messageModifier.removeProxyHeader(httpMessage)
 
     def setupHttpConnection(self, httpMessage):
         URL_PART = HOST_NAME_LINE = FIRST_CHAR = 1
