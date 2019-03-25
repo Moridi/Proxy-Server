@@ -7,10 +7,10 @@ from Cache import Cache
 
 MAX_BUFFER_SIZE = 1024
 CONNECTION_TIMEOUT = 10
+MAX_CLIENT_NUMBER = 300
 
 class ProxyServer(object):
     def setupTcpConnection(self):
-        MAX_CLIENT_NUMBER = 300
 
         proxySocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         proxySocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -123,10 +123,11 @@ class ProxyServer(object):
 
                 self.logger.serverLog(Parser.getResponseLine(data))
                 age = self.isCachable(Parser.getPragmaFlag(data)) 
-                
+
                 if (age != 0):
                     isCachable = True
-                    self.cache.createNewSlot()
+                    expiryDate = Parser.getExpiryDate(data)
+                    self.cache.createNewSlot(expiryDate)
 
                 if (isCachable):
                     self.cache.addToCache(data)

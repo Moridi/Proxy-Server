@@ -81,3 +81,22 @@ class Parser(object):
                     line[delmiterIndex + 1 : ]))          
 
         return parsedData
+
+    @staticmethod
+    def getExpiryDate(message):
+        line = ""
+        EXPIRY = "Expires: "
+        EXPIRY_FORMAT = "Expires: XXX, "
+        GMT = " GMT"
+
+        for character in message:
+            if (chr(character) == '\r'):
+                continue
+            if (chr(character) == '\n'):
+                if (line[ : len(EXPIRY)] == EXPIRY):
+                    return line[len(EXPIRY_FORMAT) : len(line) - len(GMT)]
+                line = ""
+                continue
+            line += chr(character)
+        else:
+            return ""
