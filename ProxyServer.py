@@ -102,12 +102,19 @@ class ProxyServer(object):
             httpMessage = Parser.parseHttpMessage(data)
             self.prepareRequest(httpMessage)
 
+            log_message = "Given http header:\n" \
+                    + data.decode("utf-8") \
+                    + "\n### Modified http header:\n" \
+                    + Parser.getRequestMessage(httpMessage) 
+            self.logger.serverLog(log_message)
+
             httpSocket = self.setupHttpConnection(httpMessage)
             self.sendHttpRequest(clientSocket, httpSocket, httpMessage)
 
     def run(self):
         while True:
             (clientSocket, clientAddress) = self.proxySocket.accept()
+            print("rec.")
             newThread = threading.Thread(target = self.proxyThread, args=(clientSocket, clientAddress))
             newThread.setDaemon(True)
             newThread.start()
