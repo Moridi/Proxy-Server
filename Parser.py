@@ -20,7 +20,8 @@ class Parser(object):
                 line = ""
                 continue
             line += chr(character)
-
+        
+        parsedData = parsedData[:-1]    # ignore last line in http messages.
         return parsedData
 
     @staticmethod
