@@ -86,6 +86,8 @@ class ProxyServer(object):
                 if (isCachable):
                     self.cache.addToCache(data)
 
+                self.messageModifier.injectHttpResponse(data)
+
                 clientSocket.sendall(data)
             except:
                 break

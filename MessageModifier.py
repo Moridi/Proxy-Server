@@ -1,3 +1,5 @@
+from Parser import Parser
+
 class MessageModifier(object):
     def __init__(self, userAgent, enable):
         self.userAgent = userAgent
@@ -59,3 +61,8 @@ class MessageModifier(object):
                         httpMessage[userAgentIndex][FIRST_PART], self.userAgent)            
             except:
                 pass
+
+    def injectHttpResponse(self, httpMessage):
+    
+        body = Parser.getBody(httpMessage)
+        

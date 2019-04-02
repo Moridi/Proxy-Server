@@ -125,3 +125,22 @@ class Parser(object):
             return httpMessage[HOSTNAME_LINE][URL_INDEX][SPACE_INDEX + 1 : ]
         except:
             return None
+
+    @staticmethod
+    def getBody(message):
+
+        # print(message)
+        # parsedData = []
+        # line = ""
+        #     if (chr(character) == '\r'):
+        #         continue
+        #     if (chr(character) == '\n'):
+        #         #print("&&&&&&&&&&&&" + line)
+        #         parsedData.append(line)
+        #         line = ""
+        #         continue
+        #     line += chr(character)
+        
+        # return parsedData[-1]
+
+        return None
