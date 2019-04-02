@@ -70,17 +70,17 @@ class ProxyServer(object):
             return int(message[ageIndex + len(MAX_AGE) : ])
         return 0
 
-    def prepareResponse(self, data, isCachable):
+    def prepareResponse(self, data, isCachable, requestedUrl):
         self.logger.serverLog(Parser.getResponseLine(data))
         age = self.isCachable(Parser.getPragmaFlag(data)) 
 
         if (age != 0):
             isCachable = True
             expiryDate = Parser.getExpiryDate(data)
-            self.cache.createNewSlot(expiryDate)
+            self.cache.createNewSlot(requestedUrl, expiryDate)
 
         if (isCachable):
-            self.cache.addToCache(data)
+            self.cache.addToCache(requestedUrl, data)
 
         self.messageModifier.injectHttpResponse(data)
 
@@ -96,7 +96,7 @@ class ProxyServer(object):
             if (not self.accountant.hasEnoughVolume(clientAddress[IP_INDEX])):
                 clientSocket.close()
 
-    def sendDataToClient(self, httpSocket, clientSocket, clientAddress):
+    def sendDataToClient(self, httpSocket, clientSocket, clientAddress, requestedUrl):
         isCachable = False
         while True:
             try:
@@ -104,7 +104,7 @@ class ProxyServer(object):
                 if not data:
                     break
 
-                isCachable = self.prepareResponse(data, isCachable)
+                isCachable = self.prepareResponse(data, isCachable, requestedUrl)
                 self.checkUserVolume(data, clientSocket, clientAddress)
                 clientSocket.sendall(data)
             except:
@@ -113,7 +113,7 @@ class ProxyServer(object):
     def sendHttpRequest(self, clientSocket, httpSocket, httpMessage):
         REQUEST_LINE = 0
 
-        message = Parser.getRequestMessage(httpMessage)     
+        message = Parser.getRequestMessage(httpMessage)  
 
         try:
             self.logger.clientLog(httpMessage[REQUEST_LINE][0] +\
@@ -122,23 +122,29 @@ class ProxyServer(object):
         except:
             pass
 
-
     def isRestricted(self, httpMessage):
         return self.smtpHandler.checkHostRestriction(Parser.getHostName(httpMessage))
 
+    def responseFromCache(self, httpSocket, clientSocket, clientAddress, requestedUrl):
+        return None
+
     def proxyThread(self, clientSocket, clientAddress):
-            data = clientSocket.recv(MAX_BUFFER_SIZE)
-            
-            httpMessage = Parser.parseHttpMessage(data)
+        data = clientSocket.recv(MAX_BUFFER_SIZE)
+        
+        httpMessage = Parser.parseHttpMessage(data)
 
-            if (not self.isRestricted(httpMessage)):
-                self.prepareRequest(httpMessage)
+        if (not self.isRestricted(httpMessage)):
+            requestedUrl = Parser.getUrl(httpMessage)
+            self.prepareRequest(httpMessage)
+            httpSocket = self.setupHttpConnection(httpMessage)
 
-                httpSocket = self.setupHttpConnection(httpMessage)
-                self.sendHttpRequest(clientSocket, httpSocket, httpMessage)
-                self.sendDataToClient(httpSocket, clientSocket, clientAddress)
+            # if (self.cache.cacheHit(requestedUrl)):
+            #     self.responseFromCache(httpSocket, clientSocket, clientAddress, requestedUrl)
+            # else:
+            self.sendHttpRequest(clientSocket, httpSocket, httpMessage)
+            self.sendDataToClient(httpSocket, clientSocket, clientAddress, requestedUrl)
 
-            clientSocket.close()
+        clientSocket.close()
 
     def run(self):
         while True:

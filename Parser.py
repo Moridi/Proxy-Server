@@ -25,6 +25,17 @@ class Parser(object):
         return parsedData
 
     @staticmethod
+    def getUrl(message):
+        REQUEST_LINE = 0
+        VALUE_INDEX = 1
+
+        try:
+            spaceIndex = message[REQUEST_LINE][VALUE_INDEX].find(" ")
+            return message[REQUEST_LINE][VALUE_INDEX][ : spaceIndex]
+        except:
+            return ""
+
+    @staticmethod
     def getResponseLine(message):
         line = ""
         ID = "HTTP"
@@ -55,6 +66,7 @@ class Parser(object):
                     return line[len(PRAGMA) : ]
 
                 if (line[ : len(CACHE_CONTROL)] == CACHE_CONTROL):
+                    
                     return line[len(CACHE_CONTROL) : ]
     
                 line = ""
