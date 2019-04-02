@@ -86,6 +86,16 @@ class ProxyServer(object):
 
         return isCachable
 
+    def isNotModified(self, data, isCachable, requestedUrl):
+        NOT_MODIFIED = "304"
+        
+        self.logger.serverLog(Parser.getResponseLine(data))
+        responseLine = Parser.getResponseLine(data)
+        if (NOT_MODIFIED in responseLine):
+            return True
+        else:
+            return False
+
     def checkUserVolume(self, message, clientSocket, clientAddress):
         IP_INDEX = 0
         volume = Parser.getHeaderValue(message, "Content-Length")
@@ -109,6 +119,24 @@ class ProxyServer(object):
                 clientSocket.sendall(data)
             except:
                 break
+
+    def sendExpiredRequestToClient(self, httpSocket, clientSocket, clientAddress, requestedUrl):
+        isCachable = False
+        while True:
+            try:
+                data = httpSocket.recv(MAX_BUFFER_SIZE)
+                if not data:
+                    return
+
+                if (self.isNotModified(data, isCachable, requestedUrl)):
+                    self.responseFromCache(clientSocket, clientAddress, requestedUrl)
+                    return
+
+                isCachable = self.prepareResponse(data, isCachable, requestedUrl)
+                self.checkUserVolume(data, clientSocket, clientAddress)
+                clientSocket.sendall(data)
+            except:
+                return
 
     def sendHttpRequest(self, clientSocket, httpSocket, httpMessage):
         REQUEST_LINE = 0
@@ -134,6 +162,22 @@ class ProxyServer(object):
             except:
                 break
 
+    def responseFromOriginServer(self, httpSocket, clientSocket,\
+            clientAddress, requestedUrl, httpMessage):
+        self.sendHttpRequest(clientSocket, httpSocket, httpMessage)
+        self.sendDataToClient(httpSocket, clientSocket, clientAddress, requestedUrl)
+
+    def checkPacketValidity(self, httpSocket, clientSocket,\
+            clientAddress, requestedUrl, httpMessage):
+        '''This method is called when the requested
+                packet is cached but it's been expired '''
+
+        self.messageModifier.changeIfModifiedSinceHeader(\
+                self.cache.getExpiryDate(requestedUrl), httpMessage)
+
+        self.sendHttpRequest(clientSocket, httpSocket, httpMessage)
+        self.sendExpiredRequestToClient(httpSocket, clientSocket, clientAddress, requestedUrl)
+
     def proxyThread(self, clientSocket, clientAddress):
         data = clientSocket.recv(MAX_BUFFER_SIZE)
         
@@ -144,11 +188,15 @@ class ProxyServer(object):
             self.prepareRequest(httpMessage)
             httpSocket = self.setupHttpConnection(httpMessage)
 
-            if (self.cache.cacheHit(requestedUrl) and self.cache.isNotExpired(requestedUrl)):
-                self.responseFromCache(clientSocket, clientAddress, requestedUrl)
+            if (self.cache.cacheHit(requestedUrl)):
+                if (self.cache.isNotExpired(requestedUrl)):
+                    self.responseFromCache(clientSocket, clientAddress, requestedUrl)
+                else:
+                    self.checkPacketValidity(httpSocket, clientSocket,\
+                        clientAddress, requestedUrl, httpMessage)
             else:
-                self.sendHttpRequest(clientSocket, httpSocket, httpMessage)
-                self.sendDataToClient(httpSocket, clientSocket, clientAddress, requestedUrl)
+                self.responseFromOriginServer(httpSocket, clientSocket,\
+                        clientAddress, requestedUrl, httpMessage)
 
         clientSocket.close()
 

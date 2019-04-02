@@ -35,4 +35,8 @@ class Cache(object):
 
     def isNotExpired(self, requestedUrl):
         if (requestedUrl in self.space):
-            self.space[requestedUrl][EXPIRY_DATE_INDEX] > datetime.now()
+            return self.space[requestedUrl][EXPIRY_DATE_INDEX] > datetime.now()
+
+    def getExpiryDate(self, requestedUrl):
+        if (requestedUrl in self.space):
+            return self.space[requestedUrl][EXPIRY_DATE_INDEX]

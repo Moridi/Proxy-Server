@@ -1,5 +1,7 @@
 from Parser import Parser
 
+DAYNAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
 class MessageModifier(object):
     def __init__(self, userAgent, enable):
         self.userAgent = userAgent
@@ -63,6 +65,20 @@ class MessageModifier(object):
                 pass
 
     def injectHttpResponse(self, httpMessage):
-    
         body = Parser.getBody(httpMessage)
+
+    def changeIfModifiedSinceHeader(self, date, httpMessage):
+        IF_MODIFIED_SINCE = "If-Modified-Since"
+        HEADER_INDEX = 0
+        VALUE_INDEX = 0
+
+        formatedDate = DAYNAMES[date.weekday()] + ", " + str(date.day) + " " +\
+                str(date.month) + " " + str(date.year) + " " + str(date.hour) + ":" +\
+                str(date.minute) + ":" + str(date.second) + " GMT"
         
+        for headerLine in httpMessage:
+            if (headerLine[HEADER_INDEX] == IF_MODIFIED_SINCE):
+                headerLine[VALUE_INDEX] = formatedDate
+                break
+        else:
+            httpMessage.append((IF_MODIFIED_SINCE, formatedDate))
