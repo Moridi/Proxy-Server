@@ -11,14 +11,18 @@ from Accountant import Accountant
 MAX_BUFFER_SIZE = 1024
 CONNECTION_TIMEOUT = 10
 MAX_CLIENT_NUMBER = 300
+IP_INDEX = 0
+PORT_INDEX = 1
 
 class ProxyServer(object):
     def setupTcpConnection(self):
-
+        self.logger.log("Creating server socket...")
         proxySocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         proxySocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         proxySocket.bind(('localhost', self.config["port"]))
+        self.logger.log("Binding socket to port : " + str(self.config["port"])) 
         proxySocket.listen(MAX_CLIENT_NUMBER)
+        
         return proxySocket
 
     def setupConfigObjects(self):
@@ -35,12 +39,13 @@ class ProxyServer(object):
                 self.config["restriction"]["enable"])
 
         self.accountant = Accountant(self.config["accounting"]["users"])
-
+        
+        self.logger.log("Proxy launched")
 
     def __init__(self, fileName):
         self.config = Parser.parseJsonFile(fileName)
-        self.proxySocket = self.setupTcpConnection()
         self.setupConfigObjects()
+        self.proxySocket = self.setupTcpConnection()
 
     def prepareRequest(self, httpMessage):
         self.messageModifier.changeHttpVersion(httpMessage)
@@ -53,10 +58,12 @@ class ProxyServer(object):
         HTTP_PORT = 80
 
         try:
-            ipAddress = socket.gethostbyname(httpMessage[HOST_NAME_LINE][URL_PART][FIRST_CHAR : ])
+            hostName = httpMessage[HOST_NAME_LINE][URL_PART][FIRST_CHAR : ]
+            ipAddress = socket.gethostbyname(hostName)
             # httpSocket.settimeout(CONNECTION_TIMEOUT)
             httpSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             httpSocket.connect((ipAddress, HTTP_PORT))
+            self.logger.log("Proxy opening connection to server" + hostName + " [" + ipAddress + "]...")
             return httpSocket
         except:
             pass
@@ -71,7 +78,7 @@ class ProxyServer(object):
         return 0
 
     def prepareResponse(self, data, isCachable, requestedUrl):
-        self.logger.serverLog(Parser.getResponseLine(data))
+        self.logger.log(Parser.getResponseLine(data))
         age = self.isCachable(Parser.getPragmaFlag(data)) 
 
         if (age != 0):
@@ -89,7 +96,7 @@ class ProxyServer(object):
     def isNotModified(self, data, isCachable, requestedUrl):
         NOT_MODIFIED = "304"
         
-        self.logger.serverLog(Parser.getResponseLine(data))
+        self.logger.log(Parser.getResponseLine(data))
         responseLine = Parser.getResponseLine(data)
         if (NOT_MODIFIED in responseLine):
             return True
@@ -139,12 +146,11 @@ class ProxyServer(object):
                 return
 
     def sendHttpRequest(self, clientSocket, httpSocket, httpMessage):
-        REQUEST_LINE = 0
         message = Parser.getRequestMessage(httpMessage)  
+        self.logger.log("Proxy sent request to server with headers:")
+        self.logger.log(message)
 
         try:
-            self.logger.clientLog(httpMessage[REQUEST_LINE][0] +\
-                    " " + httpMessage[REQUEST_LINE][1])
             httpSocket.sendall(bytes(message, 'utf-8'))
         except:
             pass
@@ -182,6 +188,8 @@ class ProxyServer(object):
         data = clientSocket.recv(MAX_BUFFER_SIZE)
         
         httpMessage = Parser.parseHttpMessage(data)
+        self.logger.log("Client sent request to proxy with the fallowing headers:")
+        self.logger.log(data.decode())
 
         if (not self.isRestricted(httpMessage)):
             requestedUrl = Parser.getUrl(httpMessage)
@@ -202,7 +210,10 @@ class ProxyServer(object):
 
     def run(self):
         while True:
+            self.logger.log("Listening for incoming requests...\n")
             (clientSocket, clientAddress) = self.proxySocket.accept()
+            self.logger.log("Accepted a request from client!")
+            self.logger.log("connect to " + str(clientAddress[IP_INDEX]) + ":" + str(clientAddress[PORT_INDEX]))
             newThread = threading.Thread(target = self.proxyThread, args=(clientSocket, clientAddress))
             newThread.setDaemon(True)
             newThread.start()

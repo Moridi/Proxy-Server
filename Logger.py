@@ -5,14 +5,8 @@ class Logger(object):
         self.fileName = fileName
         self.enable = enable
 
-    def clientLog(self, message):
-        if (self.enable):
-            self.openedFile = open(self.fileName, "a+")
-            self.openedFile.write(str(datetime.datetime.now()) + " : Clinet : " + message + "\n")
-            self.openedFile.close()
-
-    def serverLog(self, message):
+    def log(self, message):
         if (self.enable and message != None):
             self.openedFile = open(self.fileName, "a+")
-            self.openedFile.write(str(datetime.datetime.now()) + " : Server : " + message + "\n")
+            self.openedFile.write(str(datetime.datetime.now()) + " : " + message + "\n")
             self.openedFile.close()
