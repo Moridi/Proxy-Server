@@ -144,7 +144,7 @@ class ProxyServer(object):
             self.prepareRequest(httpMessage)
             httpSocket = self.setupHttpConnection(httpMessage)
 
-            if (self.cache.cacheHit(requestedUrl)):
+            if (self.cache.cacheHit(requestedUrl) and self.cache.isNotExpired(requestedUrl)):
                 self.responseFromCache(clientSocket, clientAddress, requestedUrl)
             else:
                 self.sendHttpRequest(clientSocket, httpSocket, httpMessage)

@@ -1,8 +1,7 @@
 from datetime import datetime
 
-STATUS_INDEX = 0
 MESSAGE_INDEX = 1
-URL_INDEX = 0
+EXPIRY_DATE_INDEX = 0
 
 class Cache(object):
     def __init__(self, size, enable):
@@ -33,3 +32,7 @@ class Cache(object):
         if (requestedUrl in self.space):        
             return self.space[requestedUrl][MESSAGE_INDEX]
         return []
+
+    def isNotExpired(self, requestedUrl):
+        if (requestedUrl in self.space):
+            self.space[requestedUrl][EXPIRY_DATE_INDEX] > datetime.now()
