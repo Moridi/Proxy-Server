@@ -19,7 +19,8 @@ class Cache(object):
         if (expiryDate == ""):
             self.space[requestedUrl] = (datetime.now(), [])
         else:
-            self.space[requestedUrl] = (datetime.strptime(expiryDate, '%d %b %Y %H:%M:%S'), [])
+            self.space[requestedUrl] = (datetime.strptime(\
+                    expiryDate, '%d %b %Y %H:%M:%S'), [])
 
     def addToCache(self, requestedUrl, message):
         if (requestedUrl in self.space):
@@ -27,3 +28,8 @@ class Cache(object):
 
     def cacheHit(self, url):
         return url in self.space
+
+    def getResponse(self, requestedUrl):
+        if (requestedUrl in self.space):        
+            return self.space[requestedUrl][MESSAGE_INDEX]
+        return []

@@ -112,7 +112,6 @@ class ProxyServer(object):
 
     def sendHttpRequest(self, clientSocket, httpSocket, httpMessage):
         REQUEST_LINE = 0
-
         message = Parser.getRequestMessage(httpMessage)  
 
         try:
@@ -125,8 +124,15 @@ class ProxyServer(object):
     def isRestricted(self, httpMessage):
         return self.smtpHandler.checkHostRestriction(Parser.getHostName(httpMessage))
 
-    def responseFromCache(self, httpSocket, clientSocket, clientAddress, requestedUrl):
-        return None
+    def responseFromCache(self, clientSocket, clientAddress, requestedUrl):
+        cachedResponse = self.cache.getResponse(requestedUrl)
+
+        for partOfResponse in cachedResponse:
+            try:
+                self.checkUserVolume(partOfResponse, clientSocket, clientAddress)
+                clientSocket.sendall(partOfResponse)
+            except:
+                break
 
     def proxyThread(self, clientSocket, clientAddress):
         data = clientSocket.recv(MAX_BUFFER_SIZE)
@@ -138,11 +144,11 @@ class ProxyServer(object):
             self.prepareRequest(httpMessage)
             httpSocket = self.setupHttpConnection(httpMessage)
 
-            # if (self.cache.cacheHit(requestedUrl)):
-            #     self.responseFromCache(httpSocket, clientSocket, clientAddress, requestedUrl)
-            # else:
-            self.sendHttpRequest(clientSocket, httpSocket, httpMessage)
-            self.sendDataToClient(httpSocket, clientSocket, clientAddress, requestedUrl)
+            if (self.cache.cacheHit(requestedUrl)):
+                self.responseFromCache(clientSocket, clientAddress, requestedUrl)
+            else:
+                self.sendHttpRequest(clientSocket, httpSocket, httpMessage)
+                self.sendDataToClient(httpSocket, clientSocket, clientAddress, requestedUrl)
 
         clientSocket.close()
 
