@@ -6,6 +6,7 @@ from Parser import Parser
 from Cache import Cache
 from MessageModifier import MessageModifier
 from SmtpHandler import SmtpHandler
+from Accountant import Accountant
 
 MAX_BUFFER_SIZE = 1024
 CONNECTION_TIMEOUT = 10
@@ -32,6 +33,8 @@ class ProxyServer(object):
 
         self.smtpHandler = SmtpHandler(self.config["restriction"]["targets"],\
                 self.config["restriction"]["enable"])
+
+        self.accountant = Accountant(self.config["accounting"]["users"])
 
 
     def __init__(self, fileName):
@@ -67,7 +70,33 @@ class ProxyServer(object):
             return int(message[ageIndex + len(MAX_AGE) : ])
         return 0
 
-    def sendDataToClient(self, httpSocket, clientSocket):
+    def prepareResponse(self, data, isCachable):
+        self.logger.serverLog(Parser.getResponseLine(data))
+        age = self.isCachable(Parser.getPragmaFlag(data)) 
+
+        if (age != 0):
+            isCachable = True
+            expiryDate = Parser.getExpiryDate(data)
+            self.cache.createNewSlot(expiryDate)
+
+        if (isCachable):
+            self.cache.addToCache(data)
+
+        self.messageModifier.injectHttpResponse(data)
+
+        return isCachable
+
+    def checkUserVolume(self, message, clientSocket, clientAddress):
+        IP_INDEX = 0
+        volume = Parser.getHeaderValue(message, "Content-Length")
+
+        if (volume != ""):
+            self.accountant.decreaseUserVolume(clientAddress[IP_INDEX], int(volume))
+
+            if (not self.accountant.hasEnoughVolume(clientAddress[IP_INDEX])):
+                clientSocket.close()
+
+    def sendDataToClient(self, httpSocket, clientSocket, clientAddress):
         isCachable = False
         while True:
             try:
@@ -75,19 +104,8 @@ class ProxyServer(object):
                 if not data:
                     break
 
-                self.logger.serverLog(Parser.getResponseLine(data))
-                age = self.isCachable(Parser.getPragmaFlag(data)) 
-
-                if (age != 0):
-                    isCachable = True
-                    expiryDate = Parser.getExpiryDate(data)
-                    self.cache.createNewSlot(expiryDate)
-
-                if (isCachable):
-                    self.cache.addToCache(data)
-
-                self.messageModifier.injectHttpResponse(data)
-
+                isCachable = self.prepareResponse(data, isCachable)
+                self.checkUserVolume(data, clientSocket, clientAddress)
                 clientSocket.sendall(data)
             except:
                 break
@@ -104,7 +122,6 @@ class ProxyServer(object):
         except:
             pass
 
-        self.sendDataToClient(httpSocket, clientSocket)
 
     def isRestricted(self, httpMessage):
         return self.smtpHandler.checkHostRestriction(Parser.getHostName(httpMessage))
@@ -119,6 +136,7 @@ class ProxyServer(object):
 
                 httpSocket = self.setupHttpConnection(httpMessage)
                 self.sendHttpRequest(clientSocket, httpSocket, httpMessage)
+                self.sendDataToClient(httpSocket, clientSocket, clientAddress)
 
             clientSocket.close()
 

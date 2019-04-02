@@ -144,3 +144,23 @@ class Parser(object):
         # return parsedData[-1]
 
         return None
+
+    @staticmethod
+    def getHeaderValue(message, header):
+        line = ""
+        DELIMITER = ": "
+
+        for character in message:
+            try:
+                if (chr(character) == '\r'):
+                    continue
+                if (chr(character) == '\n'):
+                    if (len(line) > len(header) and line[ : len(header)] == header):
+                        return line[len(header) + len(DELIMITER) : ]
+                    line = ""
+                    continue
+                line += chr(character)
+            except:
+                pass
+        else:
+            return ""
