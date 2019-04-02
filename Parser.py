@@ -115,3 +115,13 @@ class Parser(object):
 
         return message
 
+    @staticmethod
+    def getHostName(httpMessage):
+        HOSTNAME_LINE = 1
+        URL_INDEX = 1
+        SPACE_INDEX = 0
+
+        try:
+            return httpMessage[HOSTNAME_LINE][URL_INDEX][SPACE_INDEX + 1 : ]
+        except:
+            return None

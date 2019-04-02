@@ -5,6 +5,7 @@ from Logger import Logger
 from Parser import Parser
 from Cache import Cache
 from MessageModifier import MessageModifier
+from SmtpHandler import SmtpHandler
 
 MAX_BUFFER_SIZE = 1024
 CONNECTION_TIMEOUT = 10
@@ -19,9 +20,7 @@ class ProxyServer(object):
         proxySocket.listen(MAX_CLIENT_NUMBER)
         return proxySocket
 
-    def __init__(self, fileName):
-        self.config = Parser.parseJsonFile(fileName)
-        self.proxySocket = self.setupTcpConnection()
+    def setupConfigObjects(self):
         self.messageModifier = MessageModifier(self.config["privacy"]["userAgent"],\
                 self.config["privacy"]["enable"])
 
@@ -30,6 +29,15 @@ class ProxyServer(object):
                 
         self.cache = Cache(self.config["caching"]["size"],\
                 self.config["caching"]["enable"])
+
+        self.smtpHandler = SmtpHandler(self.config["restriction"]["targets"],\
+                self.config["restriction"]["enable"])
+
+
+    def __init__(self, fileName):
+        self.config = Parser.parseJsonFile(fileName)
+        self.proxySocket = self.setupTcpConnection()
+        self.setupConfigObjects()
 
     def prepareRequest(self, httpMessage):
         self.messageModifier.changeHttpVersion(httpMessage)
@@ -96,25 +104,25 @@ class ProxyServer(object):
 
         self.sendDataToClient(httpSocket, clientSocket)
 
+    def isRestricted(self, httpMessage):
+        return self.smtpHandler.checkHostRestriction(Parser.getHostName(httpMessage))
+
     def proxyThread(self, clientSocket, clientAddress):
             data = clientSocket.recv(MAX_BUFFER_SIZE)
             
             httpMessage = Parser.parseHttpMessage(data)
-            self.prepareRequest(httpMessage)
 
-            log_message = "Given http header:\n" \
-                    + data.decode("utf-8") \
-                    + "\n### Modified http header:\n" \
-                    + Parser.getRequestMessage(httpMessage) 
-            self.logger.serverLog(log_message)
+            if (not self.isRestricted(httpMessage)):
+                self.prepareRequest(httpMessage)
 
-            httpSocket = self.setupHttpConnection(httpMessage)
-            self.sendHttpRequest(clientSocket, httpSocket, httpMessage)
+                httpSocket = self.setupHttpConnection(httpMessage)
+                self.sendHttpRequest(clientSocket, httpSocket, httpMessage)
+
+            clientSocket.close()
 
     def run(self):
         while True:
             (clientSocket, clientAddress) = self.proxySocket.accept()
-            print("rec.")
             newThread = threading.Thread(target = self.proxyThread, args=(clientSocket, clientAddress))
             newThread.setDaemon(True)
             newThread.start()
