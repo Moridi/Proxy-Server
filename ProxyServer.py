@@ -27,6 +27,17 @@ class ProxyServer(object):
         
         return proxySocket
 
+    def prepareErrorMessage(self, fileName):
+        openedFile = open(fileName, "r")
+        formatedFile = ""
+
+        for line in openedFile:
+            formatedFile += line[ : -1] + "\r\n"
+
+        self.errorMessage = bytes(formatedFile, 'utf-8')
+
+        openedFile.close()
+
     def setupConfigObjects(self):
         self.messageModifier = MessageModifier(self.config["privacy"]["userAgent"],\
                 self.config["privacy"]["enable"])
@@ -49,6 +60,7 @@ class ProxyServer(object):
 
     def __init__(self, fileName):
         self.config = Parser.parseJsonFile(fileName)
+        self.prepareErrorMessage("errorMessage")
         self.setupConfigObjects()
         self.proxySocket = self.setupTcpConnection()
 
@@ -99,9 +111,11 @@ class ProxyServer(object):
     def prepareResponse(self, data, isCachable, requestedUrl):
         response = Parser.getResponseHeader(data)
         if (response != None):
-            self.logger.log("Server sent response to proxy and proxy" + 
-                    "forward it to client with headers:\n" + response)
-            return self.messageInjector.injectHttpResponse(data)
+            self.logger.log("Server sent response to proxy with headers:\n" + response)
+            data = self.messageInjector.injectHttpResponse(data)
+            response = Parser.getResponseHeader(data)
+            self.logger.log("Proxy sent response to client with headers:\n" + response)
+
         return data
 
     def isNotModified(self, data, isCachable, requestedUrl):
@@ -122,6 +136,9 @@ class ProxyServer(object):
             self.accountant.decreaseUserVolume(clientAddress[IP_INDEX], int(volume))
 
             if (not self.accountant.hasEnoughVolume(clientAddress[IP_INDEX])):
+                self.logger.log("User doesn't have enough volume and " +
+                        "proxy sent fallowing message to the client!" + self.errorMessage.decode())
+                clientSocket.sendall(self.errorMessage)
                 clientSocket.close()
 
     def sendDataToClient(self, httpSocket, clientSocket, clientAddress, requestedUrl):
@@ -135,9 +152,8 @@ class ProxyServer(object):
                 isCachable = self.addToCache(data, isCachable, requestedUrl)
                 data = self.prepareResponse(data, isCachable, requestedUrl)
                 self.checkUserVolume(data, clientSocket, clientAddress)
-                
                 clientSocket.sendall(data)
-
+                
             except:
                 break
 

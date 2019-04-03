@@ -1,0 +1,9 @@
+HTTP/1.1 200 OK
+Cache-Control: no-cache
+Pragma: no-cache
+Content-Type: text/html; charset=utf-8
+Content-Length: 537
+Connection: close
+
+<html><head><style>*{transition:all0.6s;}html{height:100%;}body{font-family:'Lato',sans-serif;color:#888;margin:0;}#main{display:table;width:100%;height:100vh;text-align:center;}.fof{display:table-cell;vertical-align:middle;}.fofh1{font-size:50px;display:inline-block;padding-right:12px;animation:type.5salternateinfinite;}@keyframestype{from{box-shadow:inset-3px0px0px#888;}to{box-shadow:inset-3px0px0pxtransparent;}}</style></head><divid="main"><divclass="fof"><h1>Recharge your account to continue browsing ...</h1></div></div></html>
+
