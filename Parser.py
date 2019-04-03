@@ -20,8 +20,7 @@ class Parser(object):
                 line = ""
                 continue
             line += chr(character)
-        
-        parsedData = parsedData[:-1]    # ignore last line in http messages.
+
         return parsedData
 
     @staticmethod
@@ -51,6 +50,31 @@ class Parser(object):
             return line
         else:
             return None
+
+    @staticmethod
+    def getResponseHeader(message):
+        line = ""
+        ID = "HTTP"
+        isLastLine = False
+
+        for character in message:
+            if (chr(character) == '\r'):
+                continue
+            if (chr(character) == '\n'):
+                if (isLastLine):
+                    break
+                line += "\n"
+                isLastLine = True
+                continue
+
+            isLastLine = False
+            line += chr(character)
+
+        if (line[ : len(ID)] == ID):
+            return line
+        else:
+            return None
+
 
     @staticmethod
     def getPragmaFlag(message):

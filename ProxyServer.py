@@ -5,7 +5,7 @@ from Logger import Logger
 from Parser import Parser
 from Cache import Cache
 from MessageModifier import MessageModifier
-from SmtpHandler import SmtpHandler
+from Restrictor import Restrictor
 from Accountant import Accountant
 
 MAX_BUFFER_SIZE = 1024
@@ -17,11 +17,12 @@ PORT_INDEX = 1
 class ProxyServer(object):
     def setupTcpConnection(self):
         self.logger.log("Creating server socket...")
+
         proxySocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         proxySocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         proxySocket.bind(('localhost', self.config["port"]))
-        self.logger.log("Binding socket to port : " + str(self.config["port"])) 
         proxySocket.listen(MAX_CLIENT_NUMBER)
+        self.logger.log("Binding socket to port : " + str(self.config["port"])) 
         
         return proxySocket
 
@@ -35,7 +36,7 @@ class ProxyServer(object):
         self.cache = Cache(self.config["caching"]["size"],\
                 self.config["caching"]["enable"])
 
-        self.smtpHandler = SmtpHandler(self.config["restriction"]["targets"],\
+        self.restrictor = Restrictor(self.config["restriction"]["targets"],\
                 self.config["restriction"]["enable"])
 
         self.accountant = Accountant(self.config["accounting"]["users"])
@@ -60,10 +61,11 @@ class ProxyServer(object):
         try:
             hostName = httpMessage[HOST_NAME_LINE][URL_PART][FIRST_CHAR : ]
             ipAddress = socket.gethostbyname(hostName)
-            # httpSocket.settimeout(CONNECTION_TIMEOUT)
             httpSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             httpSocket.connect((ipAddress, HTTP_PORT))
-            self.logger.log("Proxy opening connection to server" + hostName + " [" + ipAddress + "]...")
+            self.logger.log("Proxy opening HTTP connection to server" + hostName +
+                   " [" + ipAddress + "]...")
+            
             return httpSocket
         except:
             pass
@@ -78,9 +80,12 @@ class ProxyServer(object):
         return 0
 
     def prepareResponse(self, data, isCachable, requestedUrl):
-        self.logger.log(Parser.getResponseLine(data))
-        age = self.isCachable(Parser.getPragmaFlag(data)) 
+        response = Parser.getResponseHeader(data)
+        if (response != None):
+            self.logger.log("Server sent response to proxy and proxy" + 
+                    "forward it to client with headers:\n" + response)
 
+        age = self.isCachable(Parser.getPragmaFlag(data))
         if (age != 0):
             isCachable = True
             expiryDate = Parser.getExpiryDate(data)
@@ -147,8 +152,7 @@ class ProxyServer(object):
 
     def sendHttpRequest(self, clientSocket, httpSocket, httpMessage):
         message = Parser.getRequestMessage(httpMessage)  
-        self.logger.log("Proxy sent request to server with headers:")
-        self.logger.log(message)
+        self.logger.log("Proxy sent request to origin server with headers:\n" + message)
 
         try:
             httpSocket.sendall(bytes(message, 'utf-8'))
@@ -156,10 +160,16 @@ class ProxyServer(object):
             pass
 
     def isRestricted(self, httpMessage):
-        return self.smtpHandler.checkHostRestriction(Parser.getHostName(httpMessage))
+        return self.restrictor.checkHostRestriction(Parser.getHostName(httpMessage))
 
     def responseFromCache(self, clientSocket, clientAddress, requestedUrl):
+        HEADER_INDEX = 0
+
         cachedResponse = self.cache.getResponse(requestedUrl)
+
+        header = Parser.getResponseHeader(cachedResponse[HEADER_INDEX])
+        if (header != None):
+            self.logger.log("Proxy sent response to client with headers: [From cache]\n" + header)
 
         for partOfResponse in cachedResponse:
             try:
@@ -184,36 +194,45 @@ class ProxyServer(object):
         self.sendHttpRequest(clientSocket, httpSocket, httpMessage)
         self.sendExpiredRequestToClient(httpSocket, clientSocket, clientAddress, requestedUrl)
 
-    def proxyThread(self, clientSocket, clientAddress):
-        data = clientSocket.recv(MAX_BUFFER_SIZE)
-        
-        httpMessage = Parser.parseHttpMessage(data)
-        self.logger.log("Client sent request to proxy with the fallowing headers:")
-        self.logger.log(data.decode())
+    def sendResponseToClient(self, httpMessage, clientSocket, clientAddress):
+        requestedUrl = Parser.getUrl(httpMessage)
+        self.prepareRequest(httpMessage)
+        httpSocket = self.setupHttpConnection(httpMessage)
 
-        if (not self.isRestricted(httpMessage)):
-            requestedUrl = Parser.getUrl(httpMessage)
-            self.prepareRequest(httpMessage)
-            httpSocket = self.setupHttpConnection(httpMessage)
-
-            if (self.cache.cacheHit(requestedUrl)):
-                if (self.cache.isNotExpired(requestedUrl)):
-                    self.responseFromCache(clientSocket, clientAddress, requestedUrl)
-                else:
-                    self.checkPacketValidity(httpSocket, clientSocket,\
-                        clientAddress, requestedUrl, httpMessage)
+        if (self.cache.cacheHit(requestedUrl)):
+            self.logger.log("Cache hit occurred!!")
+            if (self.cache.isNotExpired(requestedUrl)):
+                self.responseFromCache(clientSocket, clientAddress, requestedUrl)
             else:
-                self.responseFromOriginServer(httpSocket, clientSocket,\
-                        clientAddress, requestedUrl, httpMessage)
+                self.checkPacketValidity(httpSocket, clientSocket,\
+                    clientAddress, requestedUrl, httpMessage)
+        else:
+            self.responseFromOriginServer(httpSocket, clientSocket,\
+                    clientAddress, requestedUrl, httpMessage)
 
+    def proxyThread(self, clientSocket, clientAddress):
+        try:
+            data = clientSocket.recv(MAX_BUFFER_SIZE)
+            
+            httpMessage = Parser.parseHttpMessage(data)
+            self.logger.log("Client sent request to proxy with the fallowing headers:\n" +
+                    data.decode())
+
+            if (not self.isRestricted(httpMessage)):
+                self.sendResponseToClient(httpMessage, clientSocket, clientAddress)
+            else:
+                self.logger.log("Request dropped!\n")
+        except:
+            pass
         clientSocket.close()
 
     def run(self):
         while True:
-            self.logger.log("Listening for incoming requests...\n")
             (clientSocket, clientAddress) = self.proxySocket.accept()
             self.logger.log("Accepted a request from client!")
-            self.logger.log("connect to " + str(clientAddress[IP_INDEX]) + ":" + str(clientAddress[PORT_INDEX]))
-            newThread = threading.Thread(target = self.proxyThread, args=(clientSocket, clientAddress))
+            self.logger.log("connect to " + str(clientAddress[IP_INDEX]) +
+                   ":" + str(clientAddress[PORT_INDEX]))
+            newThread = threading.Thread(target = self.proxyThread,
+                    args=(clientSocket, clientAddress))
             newThread.setDaemon(True)
             newThread.start()
