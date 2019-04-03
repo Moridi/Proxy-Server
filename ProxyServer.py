@@ -247,6 +247,8 @@ class ProxyServer(object):
             if (not self.isRestricted(httpMessage)):
                 self.sendResponseToClient(httpMessage, clientSocket, clientAddress)
             else:
+                self.restrictor.sendAlertMail(Parser.getHostName(httpMessage),
+                        Parser.getRequestMessage(httpMessage))
                 self.logger.log("Request dropped!\n")
         except:
             pass
