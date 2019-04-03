@@ -7,6 +7,7 @@ from Cache import Cache
 from MessageModifier import MessageModifier
 from Restrictor import Restrictor
 from Accountant import Accountant
+from MessageInjector import MessageInjector
 
 MAX_BUFFER_SIZE = 1024
 CONNECTION_TIMEOUT = 10
@@ -40,6 +41,9 @@ class ProxyServer(object):
                 self.config["restriction"]["enable"])
 
         self.accountant = Accountant(self.config["accounting"]["users"])
+
+        self.messageInjector = MessageInjector(self.config["HTTPInjection"]["post"]["body"],\
+                self.config["HTTPInjection"]["enable"])
         
         self.logger.log("Proxy launched")
 
@@ -69,7 +73,7 @@ class ProxyServer(object):
             return httpSocket
         except:
             pass
-    
+
     def isCachable(self, message):
         MAX_AGE = "max-age="
         NOT_FOUND = -1
@@ -79,13 +83,9 @@ class ProxyServer(object):
             return int(message[ageIndex + len(MAX_AGE) : ])
         return 0
 
-    def prepareResponse(self, data, isCachable, requestedUrl):
-        response = Parser.getResponseHeader(data)
-        if (response != None):
-            self.logger.log("Server sent response to proxy and proxy" + 
-                    "forward it to client with headers:\n" + response)
-
+    def addToCache(self, data, isCachable, requestedUrl):
         age = self.isCachable(Parser.getPragmaFlag(data))
+
         if (age != 0):
             isCachable = True
             expiryDate = Parser.getExpiryDate(data)
@@ -94,9 +94,15 @@ class ProxyServer(object):
         if (isCachable):
             self.cache.addToCache(requestedUrl, data)
 
-        self.messageModifier.injectHttpResponse(data)
-
         return isCachable
+
+    def prepareResponse(self, data, isCachable, requestedUrl):
+        response = Parser.getResponseHeader(data)
+        if (response != None):
+            self.logger.log("Server sent response to proxy and proxy" + 
+                    "forward it to client with headers:\n" + response)
+            return self.messageInjector.injectHttpResponse(data)
+        return data
 
     def isNotModified(self, data, isCachable, requestedUrl):
         NOT_MODIFIED = "304"
@@ -126,9 +132,12 @@ class ProxyServer(object):
                 if not data:
                     break
 
-                isCachable = self.prepareResponse(data, isCachable, requestedUrl)
+                isCachable = self.addToCache(data, isCachable, requestedUrl)
+                data = self.prepareResponse(data, isCachable, requestedUrl)
                 self.checkUserVolume(data, clientSocket, clientAddress)
+                
                 clientSocket.sendall(data)
+
             except:
                 break
 
@@ -144,7 +153,8 @@ class ProxyServer(object):
                     self.responseFromCache(clientSocket, clientAddress, requestedUrl)
                     return
 
-                isCachable = self.prepareResponse(data, isCachable, requestedUrl)
+                isCachable = self.addToCache(data, isCachable, requestedUrl)
+                data = self.prepareResponse(data, isCachable, requestedUrl)
                 self.checkUserVolume(data, clientSocket, clientAddress)
                 clientSocket.sendall(data)
             except:

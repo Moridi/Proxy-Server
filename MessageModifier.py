@@ -64,9 +64,6 @@ class MessageModifier(object):
             except:
                 pass
 
-    def injectHttpResponse(self, httpMessage):
-        body = Parser.getBody(httpMessage)
-
     def changeIfModifiedSinceHeader(self, date, httpMessage):
         IF_MODIFIED_SINCE = "If-Modified-Since"
         HEADER_INDEX = 0

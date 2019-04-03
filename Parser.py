@@ -163,23 +163,46 @@ class Parser(object):
             return None
 
     @staticmethod
-    def getBody(message):
+    def getString(data):
+        string = ""
 
-        # print(message)
-        # parsedData = []
-        # line = ""
-        #     if (chr(character) == '\r'):
-        #         continue
-        #     if (chr(character) == '\n'):
-        #         #print("&&&&&&&&&&&&" + line)
-        #         parsedData.append(line)
-        #         line = ""
-        #         continue
-        #     line += chr(character)
+        for character in data:
+            string += character
         
-        # return parsedData[-1]
+        return string
 
-        return None
+    @staticmethod
+    def changeTheContentLength(messageString, length):
+        line = ""
+        LENGTH_KEY = "Content-Length: "
+
+        if (LENGTH_KEY in messageString):
+            lengthIndex = messageString.find(LENGTH_KEY) + len(LENGTH_KEY)
+            newLineIndex = messageString[lengthIndex : ].find("\r\n")
+            
+            messageString = messageString[ : lengthIndex] +\
+                    str(int(messageString[lengthIndex : lengthIndex + newLineIndex]) + length) +\
+                    messageString[lengthIndex + newLineIndex : ]
+            return messageString
+        return ""
+
+    @staticmethod
+    def getBody(data, injectedMessage):
+        BODY = "<body>"
+        BR = "<br>"
+        
+        messageString = data.decode()
+        
+        if (BODY in messageString):
+            messageString = Parser.changeTheContentLength(messageString, len(injectedMessage) * 2 + len(BR))
+            bodyIndex = messageString.index(BODY) + len(BODY)
+            messageString = messageString[ : bodyIndex] +\
+                    injectedMessage + BR + messageString[bodyIndex : ]
+        data = bytes(messageString, 'utf-8')
+
+        print(data.decode())
+
+        return data
 
     @staticmethod
     def getHeaderValue(message, header):
