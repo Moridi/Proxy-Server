@@ -40,7 +40,7 @@
 	},
 	
   "HTTPInjection": {
-    "enable": true,
+    "enable": false,
     "post": {
       "body": "پروژه 2 درس شبکه های کامپیوتری"
     }

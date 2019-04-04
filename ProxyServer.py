@@ -112,11 +112,6 @@ class ProxyServer(object):
         response = Parser.getResponseHeader(data)
         if (response != None):
             self.logger.log("Server sent response to proxy with headers:\n" + response)
-            data = self.messageInjector.injectHttpResponse(data)
-            response = Parser.getResponseHeader(data)
-            self.logger.log("Proxy sent response to client with headers:\n" + response)
-
-        return data
 
     def isNotModified(self, data, isCachable, requestedUrl):
         NOT_MODIFIED = "304"
@@ -143,6 +138,8 @@ class ProxyServer(object):
 
     def sendDataToClient(self, httpSocket, clientSocket, clientAddress, requestedUrl):
         isCachable = False
+        completedData = bytes("", "utf-8")
+
         while True:
             try:
                 data = httpSocket.recv(MAX_BUFFER_SIZE)
@@ -150,12 +147,16 @@ class ProxyServer(object):
                     break
 
                 isCachable = self.addToCache(data, isCachable, requestedUrl)
-                data = self.prepareResponse(data, isCachable, requestedUrl)
+                self.prepareResponse(data, isCachable, requestedUrl)
                 self.checkUserVolume(data, clientSocket, clientAddress)
-                clientSocket.sendall(data)
-                
+                completedData += data
             except:
                 break
+
+        # data = self.messageInjector.injectHttpResponse(data)
+        response = Parser.getResponseHeader(completedData)
+        self.logger.log("Proxy sent response to client with headers:\n" + response)
+        clientSocket.sendall(completedData)
 
     def sendExpiredRequestToClient(self, httpSocket, clientSocket, clientAddress, requestedUrl):
         isCachable = False
@@ -170,7 +171,7 @@ class ProxyServer(object):
                     return
 
                 isCachable = self.addToCache(data, isCachable, requestedUrl)
-                data = self.prepareResponse(data, isCachable, requestedUrl)
+                self.prepareResponse(data, isCachable, requestedUrl)
                 self.checkUserVolume(data, clientSocket, clientAddress)
                 clientSocket.sendall(data)
             except:
