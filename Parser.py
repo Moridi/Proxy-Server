@@ -195,7 +195,7 @@ class Parser(object):
         
         if (BODY in messageString):
             messageString = Parser.changeTheContentLength(messageString,\
-                    len(injectedMessage) * 2 + len(BR))
+                    len(injectedMessage) + len(BR))
             bodyIndex = messageString.index(BODY) + len(BODY)
             messageString = messageString[ : bodyIndex] +\
                     injectedMessage + BR + messageString[bodyIndex : ]
@@ -222,3 +222,34 @@ class Parser(object):
                 pass
         else:
             return ""
+
+    @staticmethod
+    def getContent(completedData):
+        isLastLine = False
+        contentIndex = 0
+
+        for character in completedData:
+            contentIndex += 1
+
+            if (chr(character) == '\r'):
+                continue
+            if (chr(character) == '\n'):
+                if (isLastLine):
+                    break
+                isLastLine = True
+                continue
+            isLastLine = False
+        
+        if (len(completedData) > 0):
+            return completedData[contentIndex : ], contentIndex
+        return "", -1
+
+    @staticmethod
+    def getUnzippedContent(content):
+        return content
+
+    @staticmethod
+    def getUnzippedData(completedData):
+        content, contentIndex = Parser.getContent(completedData)
+        newContent = Parser.getUnzippedContent(content)
+        return completedData[ : contentIndex] + newContent 

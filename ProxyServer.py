@@ -113,7 +113,7 @@ class ProxyServer(object):
         response = Parser.getResponseHeader(data)
         if (response != None):
             self.logger.log("Server sent response to proxy with headers:\n" + response)
-            if (Parser.getHeaderValue(data, "Content-Type") == "text/html; charset=utf-8"):
+            if ("html" in Parser.getHeaderValue(data, "Content-Type")):
                 return True
         return False
 
@@ -155,7 +155,6 @@ class ProxyServer(object):
 
         return completedData
 
-
     def sendDataToClient(self, httpSocket, clientSocket, clientAddress, requestedUrl, completedData):
         isCachable = self.addToCache(completedData, requestedUrl)
         isBaseHtmlFile = self.isHtmlFile(completedData, requestedUrl)
@@ -164,8 +163,9 @@ class ProxyServer(object):
         response = Parser.getResponseHeader(completedData)
         self.logger.log("Proxy sent response to client with headers:\n" + response)
 
-        # if (isBaseHtmlFile):
-            # completedData = self.messageInjector.injectHttpResponse(completedData)
+        if (isBaseHtmlFile):
+            completedData = Parser.getUnzippedData(completedData)
+            completedData = self.messageInjector.injectHttpResponse(completedData)
 
         clientSocket.sendall(completedData)
 
