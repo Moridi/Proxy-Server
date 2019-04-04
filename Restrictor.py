@@ -13,51 +13,68 @@ class Restrictor(object):
             self.targets[target["URL"]] = target["notify"]
             self.targets["www." + target["URL"]] = target["notify"]
     
-    def getClientSocket(self):
-        MAIL_SERVER_PORT = 25
+    def sendMessage(self, message):
+        self.clientSocket.send(message.encode())
+        recvMessage = self.clientSocket.recv(MAX_BUFFER_SIZE)
+        recvMessage = recvMessage.decode()
 
-        mailserver = (MAIL_SERVER, MAIL_SERVER_PORT)
+        if (recvMessage[ : 3] != "250"):
+            print('250 reply not received from server.')
+
+    def getClientSocket(self):
+        mailserver = ("mail.ut.ac.ir", 25)
         self.clientSocket = socket(AF_INET, SOCK_STREAM)
         self.clientSocket.connect(mailserver)
         recvMessage = self.clientSocket.recv(MAX_BUFFER_SIZE)
+        recvMessage = recvMessage.decode()
 
-        if recvMessage[ : 3] != '220':
+        if recvMessage[:3] != '220':
             print('220 reply not received from server.')
 
     def sendHeloCommand(self):
         heloCommand = 'HELO ' + MAIL_SERVER + '\r\n'
-        self.clientSocket.send(heloCommand.encode())
-        recvMessage = self.clientSocket.recv(MAX_BUFFER_SIZE)
+        self.sendMessage(heloCommand)
 
-        if recvMessage[ : 3] != '250':
-            print('250 reply not received from server.')
+    def sendAuthValue(self, message):
+        base64_str = message.encode()
+        authMessage = base64.b64encode(base64_str)
+        self.clientSocket.send(authMessage)
+        self.clientSocket.send("\r\n".encode())
+        recvMessage = self.clientSocket.recv(MAX_BUFFER_SIZE)
+        recvMessage = recvMessage.decode()
+        return recvMessage[ : 3]
 
     def sendAuthCommand(self):
-        # It is wrong username and password
+        self.clientSocket.send("AUTH LOGIN\r\n".encode())
+        recvMessage = self.clientSocket.recv(MAX_BUFFER_SIZE)
+        recvMessage = recvMessage.decode()
+
+        if (recvMessage[0 : 3] != '334'):
+            print('334 reply not received from server. [AUTH LOGIN]')
+        
         username = "xxxxxx\n"
         password = "xxxxxx"
-        base64_str = ("\x00" + username + "\x00" + password).encode()
-        base64_str = base64.b64encode(base64_str)
-        authMessage = "AUTH LOGIN ".encode() + base64_str + "\r\n".encode()
-        self.clientSocket.send(authMessage)
-        recvMessage = self.clientSocket.recv(MAX_BUFFER_SIZE)
+        
+        returnCode = self.sendAuthValue(username)
+        returnCode = self.sendAuthValue(password)
+        if (returnCode != "235"):
+            print('Authentication failed.')
 
     def sendMailFromCommand(self):
-        mailFrom = "MAIL FROM:<moridi@ut.ac.ir>\r\n"
-        self.clientSocket.send(mailFrom.encode())
-        recvMessage = self.clientSocket.recv(MAX_BUFFER_SIZE)
+        mailFrom = "MAIL FROM: <m.moridi@ut.ac.ir>\r\n"
+        self.sendMessage(mailFrom)
 
     def sendRcptToCommand(self):
-        rcptTo = "RCPT TO:<ali.edalat@ut.ac.ir>\r\n"
-        self.clientSocket.send(rcptTo.encode())
-        recvMessage = self.clientSocket.recv(MAX_BUFFER_SIZE)
+        rcptTo = "RCPT TO: <ali.edalat@ut.ac.ir>\r\n"
+        self.sendMessage(rcptTo)
 
     def sendDataCommand(self):
         data = "DATA\r\n"
         self.clientSocket.send(data.encode())
         recvMessage = self.clientSocket.recv(MAX_BUFFER_SIZE)
+        recvMessage = recvMessage.decode()
 
-    def sendMailContent(self):
+    def sendMailContent(self, message):
         msg = "\r\n" + message
         endmsg = "\r\n.\r\n"
 
@@ -67,9 +84,8 @@ class Restrictor(object):
         date = date + "\r\n\r\n"
         self.clientSocket.send(date.encode())
         self.clientSocket.send(msg.encode())
-        self.clientSocket.send(endmsg.encode())
-        recvMessage = self.clientSocket.recv(MAX_BUFFER_SIZE)
-
+        self.sendMessage(endmsg)
+    
     def sendQuitCommand(self):
         quit = "QUIT\r\n"
         self.clientSocket.send(quit.encode())
