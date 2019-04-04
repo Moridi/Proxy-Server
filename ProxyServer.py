@@ -109,7 +109,7 @@ class ProxyServer(object):
 
         return isCachable
 
-    def prepareResponse(self, data, requestedUrl):
+    def isHtmlFile(self, data, requestedUrl):
         response = Parser.getResponseHeader(data)
         if (response != None):
             self.logger.log("Server sent response to proxy with headers:\n" + response)
@@ -140,7 +140,7 @@ class ProxyServer(object):
                 clientSocket.sendall(self.errorMessage)
                 clientSocket.close()
 
-    def sendDataToClient(self, httpSocket, clientSocket, clientAddress, requestedUrl):
+    def getDataFromOriginServer(self, httpSocket):
         completedData = bytes("", "utf-8")
 
         while True:
@@ -153,47 +153,34 @@ class ProxyServer(object):
             except:
                 break
 
+        return completedData
+
+
+    def sendDataToClient(self, httpSocket, clientSocket, clientAddress, requestedUrl, completedData):
         isCachable = self.addToCache(completedData, requestedUrl)
-        isBaseHtmlFile = self.prepareResponse(completedData, requestedUrl)
+        isBaseHtmlFile = self.isHtmlFile(completedData, requestedUrl)
         self.checkUserVolume(completedData, clientSocket, clientAddress)
 
         response = Parser.getResponseHeader(completedData)
         self.logger.log("Proxy sent response to client with headers:\n" + response)
 
-        if (isBaseHtmlFile):
-            print("something")
+        # if (isBaseHtmlFile):
             # completedData = self.messageInjector.injectHttpResponse(completedData)
 
         clientSocket.sendall(completedData)
 
+    def prepareResponseForClient(self, httpSocket, clientSocket, clientAddress, requestedUrl):
+        completedData = self.getDataFromOriginServer(httpSocket)
+        self.sendDataToClient(httpSocket, clientSocket, clientAddress, requestedUrl, completedData)
+
     def sendExpiredRequestToClient(self, httpSocket, clientSocket, clientAddress, requestedUrl):
-        completedData = bytes("", "utf-8")
-        
-        while True:
-            try:
-                data = httpSocket.recv(MAX_BUFFER_SIZE)
-                if not data:
-                    return
+        # This function is not tested
+        completedData = self.getDataFromOriginServer(httpSocket)        
 
-                if (self.isNotModified(data, requestedUrl)):
-                    self.responseFromCache(clientSocket, clientAddress, requestedUrl)
-                    return
-
-                completedData += data
-            except:
-                return
-
-        isCachable = self.addToCache(completedData, requestedUrl)
-        isBaseHtmlFile = self.prepareResponse(completedData, requestedUrl)
-        self.checkUserVolume(completedData, clientSocket, clientAddress)
-
-        response = Parser.getResponseHeader(completedData)
-        self.logger.log("Proxy sent response to client with headers:\n" + response)
-
-        if (isBaseHtmlFile):
-            print("something")
-        # data = self.messageInjector.injectHttpResponse(data)
-        clientSocket.sendall(completedData)
+        if (self.isNotModified(completedData, requestedUrl)):
+            self.responseFromCache(clientSocket, clientAddress, requestedUrl)
+        else:
+            self.sendDataToClient(httpSocket, clientSocket, clientAddress, requestedUrl, completedData)        
 
     def sendHttpRequest(self, clientSocket, httpSocket, httpMessage):
         message = Parser.getRequestMessage(httpMessage)  
@@ -226,7 +213,7 @@ class ProxyServer(object):
     def responseFromOriginServer(self, httpSocket, clientSocket,\
             clientAddress, requestedUrl, httpMessage):
         self.sendHttpRequest(clientSocket, httpSocket, httpMessage)
-        self.sendDataToClient(httpSocket, clientSocket, clientAddress, requestedUrl)
+        self.prepareResponseForClient(httpSocket, clientSocket, clientAddress, requestedUrl)
 
     def checkPacketValidity(self, httpSocket, clientSocket,\
             clientAddress, requestedUrl, httpMessage):
