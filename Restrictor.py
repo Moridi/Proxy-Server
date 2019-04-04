@@ -3,6 +3,7 @@ import base64
 import time
 
 MAX_BUFFER_SIZE = 1024
+MAIL_SERVER = "mail.ut.ac.ir"
 
 class Restrictor(object):
     def __init__(self, targets, enable):
@@ -13,7 +14,6 @@ class Restrictor(object):
             self.targets["www." + target["URL"]] = target["notify"]
     
     def getClientSocket(self):
-        MAIL_SERVER = "mail.ut.ac.ir"
         MAIL_SERVER_PORT = 25
 
         mailserver = (MAIL_SERVER, MAIL_SERVER_PORT)
@@ -25,7 +25,7 @@ class Restrictor(object):
             print('220 reply not received from server.')
 
     def sendHeloCommand(self):
-        heloCommand = 'EHLO Alice\r\n'
+        heloCommand = 'HELO ' + MAIL_SERVER + '\r\n'
         self.clientSocket.send(heloCommand.encode())
         recvMessage = self.clientSocket.recv(MAX_BUFFER_SIZE)
 
@@ -34,8 +34,11 @@ class Restrictor(object):
 
     def sendAuthCommand(self):
         # It is wrong username and password
-        base64_str = bytes('aW5mb0B1dC5hYy5pcgoxMjM0', 'utf-8')
-        authMessage = "AUTH PLAIN ".encode() + base64_str + "\r\n".encode()
+        username = "xxxxxx\n"
+        password = "xxxxxx"
+        base64_str = ("\x00" + username + "\x00" + password).encode()
+        base64_str = base64.b64encode(base64_str)
+        authMessage = "AUTH LOGIN ".encode() + base64_str + "\r\n".encode()
         self.clientSocket.send(authMessage)
         recvMessage = self.clientSocket.recv(MAX_BUFFER_SIZE)
 
