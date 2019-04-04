@@ -40,9 +40,9 @@
 	},
 	
   "HTTPInjection": {
-    "enable": false,
+    "enable": true,
     "post": {
-      "body": "پروژه 2 درس شبکه های کامپیوتری"
+      "body": "Second Computer Assignment of Computer Networks Course"
     }
   }
 }

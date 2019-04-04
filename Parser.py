@@ -1,4 +1,5 @@
 import json
+import gzip
 
 class Parser(object):
     @staticmethod
@@ -187,23 +188,6 @@ class Parser(object):
         return ""
 
     @staticmethod
-    def getBody(data, injectedMessage):
-        BODY = "<body>"
-        BR = "<br>"
-        
-        messageString = data.decode()
-        
-        if (BODY in messageString):
-            messageString = Parser.changeTheContentLength(messageString,\
-                    len(injectedMessage) + len(BR))
-            bodyIndex = messageString.index(BODY) + len(BODY)
-            messageString = messageString[ : bodyIndex] +\
-                    injectedMessage + BR + messageString[bodyIndex : ]
-        data = bytes(messageString, 'utf-8')
-
-        return data
-
-    @staticmethod
     def getHeaderValue(message, header):
         line = ""
         DELIMITER = ": "
@@ -245,11 +229,48 @@ class Parser(object):
         return "", -1
 
     @staticmethod
-    def getUnzippedContent(content):
+    def getBody(data, injectedMessage):
+        BODY = "<body>"
+        BR = "<br>"
+        
+        encodingType = Parser.getHeaderValue(data, "Content-Encoding")
+        content, contentIndex = Parser.getContent(data)
+        header = data[ : contentIndex]
+
+        header = header.decode(errors = "ignore")
+        content = content.decode(errors = "ignore")
+        
+        if (BODY in content):
+            header = Parser.changeTheContentLength(header,\
+                    len(injectedMessage) + len(BR))
+
+            bodyIndex = content.index(BODY) + len(BODY)
+            content = content[ : bodyIndex] +\
+                    injectedMessage + BR + content[bodyIndex : ]
+        
+        content = bytes(content, 'utf-8')
+        
+        if (encodingType == "gzip"):
+            content = gzip.compress(content)
+        
+        header = bytes(header, 'utf-8')
+
+        return header + content
+
+    @staticmethod
+    def getUnzippedContent(content, encodingType):
+
+        if (encodingType == "gzip"):
+            return gzip.decompress(content)
         return content
 
     @staticmethod
     def getUnzippedData(completedData):
+        encodingType = Parser.getHeaderValue(completedData, "Content-Encoding")
+        if (encodingType == ""):
+            return completedData
+
         content, contentIndex = Parser.getContent(completedData)
-        newContent = Parser.getUnzippedContent(content)
-        return completedData[ : contentIndex] + newContent 
+        newContent = Parser.getUnzippedContent(content, encodingType)
+        newData = completedData[ : contentIndex] + newContent
+        return newData
