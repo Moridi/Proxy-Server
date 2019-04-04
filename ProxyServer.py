@@ -95,7 +95,8 @@ class ProxyServer(object):
             return int(message[ageIndex + len(MAX_AGE) : ])
         return 0
 
-    def addToCache(self, data, isCachable, requestedUrl):
+    def addToCache(self, data, requestedUrl):
+        isCachable = False
         age = self.isCachable(Parser.getPragmaFlag(data))
 
         if (age != 0):
@@ -108,12 +109,15 @@ class ProxyServer(object):
 
         return isCachable
 
-    def prepareResponse(self, data, isCachable, requestedUrl):
+    def prepareResponse(self, data, requestedUrl):
         response = Parser.getResponseHeader(data)
         if (response != None):
             self.logger.log("Server sent response to proxy with headers:\n" + response)
+            if (Parser.getHeaderValue(data, "Content-Type") == "text/html; charset=utf-8"):
+                return True
+        return False
 
-    def isNotModified(self, data, isCachable, requestedUrl):
+    def isNotModified(self, data, requestedUrl):
         NOT_MODIFIED = "304"
         
         self.logger.log(Parser.getResponseLine(data))
@@ -137,7 +141,6 @@ class ProxyServer(object):
                 clientSocket.close()
 
     def sendDataToClient(self, httpSocket, clientSocket, clientAddress, requestedUrl):
-        isCachable = False
         completedData = bytes("", "utf-8")
 
         while True:
@@ -146,36 +149,51 @@ class ProxyServer(object):
                 if not data:
                     break
 
-                isCachable = self.addToCache(data, isCachable, requestedUrl)
-                self.prepareResponse(data, isCachable, requestedUrl)
-                self.checkUserVolume(data, clientSocket, clientAddress)
                 completedData += data
             except:
                 break
 
-        # data = self.messageInjector.injectHttpResponse(data)
+        isCachable = self.addToCache(completedData, requestedUrl)
+        isBaseHtmlFile = self.prepareResponse(completedData, requestedUrl)
+        self.checkUserVolume(completedData, clientSocket, clientAddress)
+
         response = Parser.getResponseHeader(completedData)
         self.logger.log("Proxy sent response to client with headers:\n" + response)
+
+        if (isBaseHtmlFile):
+            print("something")
+            # completedData = self.messageInjector.injectHttpResponse(completedData)
+
         clientSocket.sendall(completedData)
 
     def sendExpiredRequestToClient(self, httpSocket, clientSocket, clientAddress, requestedUrl):
-        isCachable = False
+        completedData = bytes("", "utf-8")
+        
         while True:
             try:
                 data = httpSocket.recv(MAX_BUFFER_SIZE)
                 if not data:
                     return
 
-                if (self.isNotModified(data, isCachable, requestedUrl)):
+                if (self.isNotModified(data, requestedUrl)):
                     self.responseFromCache(clientSocket, clientAddress, requestedUrl)
                     return
 
-                isCachable = self.addToCache(data, isCachable, requestedUrl)
-                self.prepareResponse(data, isCachable, requestedUrl)
-                self.checkUserVolume(data, clientSocket, clientAddress)
-                clientSocket.sendall(data)
+                completedData += data
             except:
                 return
+
+        isCachable = self.addToCache(completedData, requestedUrl)
+        isBaseHtmlFile = self.prepareResponse(completedData, requestedUrl)
+        self.checkUserVolume(completedData, clientSocket, clientAddress)
+
+        response = Parser.getResponseHeader(completedData)
+        self.logger.log("Proxy sent response to client with headers:\n" + response)
+
+        if (isBaseHtmlFile):
+            print("something")
+        # data = self.messageInjector.injectHttpResponse(data)
+        clientSocket.sendall(completedData)
 
     def sendHttpRequest(self, clientSocket, httpSocket, httpMessage):
         message = Parser.getRequestMessage(httpMessage)  
