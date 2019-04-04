@@ -230,7 +230,7 @@ class Parser(object):
 
     @staticmethod
     def getBody(data, injectedMessage):
-        BODY = "<body>"
+        BODY = "<body"
         BR = "<br>"
         
         encodingType = Parser.getHeaderValue(data, "Content-Encoding")
@@ -245,6 +245,8 @@ class Parser(object):
                     len(injectedMessage) + len(BR))
 
             bodyIndex = content.index(BODY) + len(BODY)
+            bodyIndex += content[bodyIndex : ].index(">") + 1
+            
             content = content[ : bodyIndex] +\
                     injectedMessage + BR + content[bodyIndex : ]
         
@@ -259,7 +261,6 @@ class Parser(object):
 
     @staticmethod
     def getUnzippedContent(content, encodingType):
-
         if (encodingType == "gzip"):
             return gzip.decompress(content)
         return content

@@ -174,7 +174,6 @@ class ProxyServer(object):
         self.sendDataToClient(httpSocket, clientSocket, clientAddress, requestedUrl, completedData)
 
     def sendExpiredRequestToClient(self, httpSocket, clientSocket, clientAddress, requestedUrl):
-        # This function is not tested
         completedData = self.getDataFromOriginServer(httpSocket)        
 
         if (self.isNotModified(completedData, requestedUrl)):
