@@ -60,12 +60,13 @@ class Restrictor(object):
         if (returnCode != "235"):
             print('Authentication failed.')
 
+
     def sendMailFromCommand(self):
         mailFrom = "MAIL FROM: <m.moridi@ut.ac.ir>\r\n"
         self.sendMessage(mailFrom)
 
     def sendRcptToCommand(self):
-        rcptTo = "RCPT TO: <ali.edalat@ut.ac.ir>\r\n"
+        rcptTo = "RCPT TO: <m.moridi@ut.ac.ir>\r\n"
         self.sendMessage(rcptTo)
 
     def sendDataCommand(self):
@@ -92,18 +93,20 @@ class Restrictor(object):
         recvMessage = self.clientSocket.recv(MAX_BUFFER_SIZE)
         self.clientSocket.close()
 
-    def sendAlertMail(self, host, message):
-        if (self.targets[host] == "true"):
-            self.getClientSocket()
-            self.sendHeloCommand()
-            self.sendAuthCommand()
-            self.sendMailFromCommand()
-            self.sendRcptToCommand()
-            self.sendDataCommand()
-            self.sendMailContent(message)
-            self.sendQuitCommand()
+    def sendAlertMail(self, message):
+        self.getClientSocket()
+        self.sendHeloCommand()
+        self.sendAuthCommand()
+        self.sendMailFromCommand()
+        self.sendRcptToCommand()
+        self.sendDataCommand()
+        self.sendMailContent(message)
+        self.sendQuitCommand()
 
     def checkHostRestriction(self, host):
         if (host in self.targets):
             return True
         return False
+
+    def isEnable(self, host):
+        return self.targets[host] == "true"
