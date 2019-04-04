@@ -194,13 +194,12 @@ class Parser(object):
         messageString = data.decode()
         
         if (BODY in messageString):
-            messageString = Parser.changeTheContentLength(messageString, len(injectedMessage) * 2 + len(BR))
+            messageString = Parser.changeTheContentLength(messageString,\
+                    len(injectedMessage) * 2 + len(BR))
             bodyIndex = messageString.index(BODY) + len(BODY)
             messageString = messageString[ : bodyIndex] +\
                     injectedMessage + BR + messageString[bodyIndex : ]
         data = bytes(messageString, 'utf-8')
-
-        print(data.decode())
 
         return data
 
