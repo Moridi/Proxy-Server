@@ -73,5 +73,5 @@ First of all you should set config file with above features and `proxy port.
 
 Then you can run proxy server with `python`. It's not uses any specific library and dependecies. 
 ```
-python proxyServer.py
+python Main.py
 ```
